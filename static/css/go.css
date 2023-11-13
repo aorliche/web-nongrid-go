@@ -1,0 +1,14 @@
+#canvas {
+    border: 1px solid black;
+}
+#main {
+    display: flex;
+}
+#side {
+    margin-left: 20px;
+}
+select[name='games-list'] {
+    margin-bottom: 10px;
+    width: 280px;
+    min-height: 200px;
+}
