@@ -20,6 +20,7 @@ import (
 
 type Game struct {
     Key int
+    Player string
     Json string
     Mutex sync.Mutex
     Conns []*websocket.Conn
@@ -29,6 +30,7 @@ type Request struct {
     Key int
     Action string
     Payload string
+    Player string
 }
 
 var games = make(map[int]*Game)
@@ -42,6 +44,46 @@ func NextGameIdx() int {
         }
     }
     return max+1
+}
+
+func ListSocket(w http.ResponseWriter, r *http.Request) {
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        log.Println(err)
+        return
+    }
+    defer conn.Close()
+    for {
+        msgType, msg, err := conn.ReadMessage()
+        if err != nil {
+            log.Println(err)
+            return  
+        }
+        // Do we ever get any other types of messages?
+        if msgType != websocket.TextMessage {
+            log.Println("Not a text message")
+            return
+        }
+        var req Request
+        json.NewDecoder(bytes.NewBuffer(msg)).Decode(&req)
+        switch req.Action {
+            case "List":
+                keys := make([]int, 0)
+                for key := range games {
+                    // Check if game has not been joined by two players
+                    game := games[key]
+                    if len(game.Conns) < 2 {
+                        keys = append(keys, key)
+                    }
+                }
+                jsn, _ := json.Marshal(keys)
+                err = conn.WriteMessage(websocket.TextMessage, jsn)
+                if err != nil {
+                    log.Println(err)
+                    continue
+                }
+        }
+    }
 }
 
 func Socket(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +107,6 @@ func Socket(w http.ResponseWriter, r *http.Request) {
         }
         var req Request
         json.NewDecoder(bytes.NewBuffer(msg)).Decode(&req)
-        log.Println(string(msg))
         switch req.Action {
             case "List":
                 keys := make([]int, 0)
@@ -88,10 +129,9 @@ func Socket(w http.ResponseWriter, r *http.Request) {
                     continue
                 }
                 player = 0
-                game := &Game{Key: NextGameIdx(), Json: req.Payload, Conns: make([]*websocket.Conn, 1)}
+                game := &Game{Key: NextGameIdx(), Json: req.Payload, Conns: make([]*websocket.Conn, 1), Player: "black"}
                 game.Conns[0] = conn
                 games[game.Key] = game
-                log.Println(game.Json)
                 reply := Request{Action: "New", Key: game.Key} 
                 jsn, _ := json.Marshal(reply)
                 conn.WriteMessage(websocket.TextMessage, jsn)
@@ -108,7 +148,8 @@ func Socket(w http.ResponseWriter, r *http.Request) {
                     log.Println("Game full")
                     continue
                 }
-                reply := Request{Action: "Join", Key: game.Key, Payload: game.Json}
+                // Next player
+                reply := Request{Action: "Join", Key: game.Key, Payload: game.Json, Player: game.Player}
                 jsn, _ := json.Marshal(reply)
                 game.Conns[0].WriteMessage(websocket.TextMessage, jsn)
                 game.Conns[1].WriteMessage(websocket.TextMessage, jsn)
@@ -116,7 +157,12 @@ func Socket(w http.ResponseWriter, r *http.Request) {
                 game := games[req.Key]
                 game.Mutex.Lock()
                 game.Json = req.Payload
-                reply := Request{Action: "Move", Key: game.Key, Payload: game.Json}
+                if player == 0 {
+                    game.Player = "white"
+                } else {
+                    game.Player = "black"
+                }
+                reply := Request{Action: "Move", Key: game.Key, Payload: game.Json, Player: game.Player}
                 jsn, _ := json.Marshal(reply)
                 game.Conns[0].WriteMessage(websocket.TextMessage, jsn)
                 if len(game.Conns) == 2 {
@@ -171,5 +217,6 @@ func main() {
     log.SetFlags(0)
     ServeLocalFiles([]string{"", "/js", "/css"})
     http.HandleFunc("/ws", Socket)
+    http.HandleFunc("/list", ListSocket)
     log.Fatal(http.ListenAndServe(":8001", nil))
 }

@@ -91,10 +91,6 @@ class Board {
         this.ctx = canvas.getContext('2d');
         this.polys = [];
         this.points = [];
-        canvas.addEventListener('click', e => {
-            this.click(new Point(e.offsetX, e.offsetY));
-            this.repaint();
-        });
         this.player = 'black';
     }
 
@@ -308,26 +304,27 @@ class Board {
     }
 
     repaint() {
+        const RAD = 10;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.polys.forEach(p => p.draw(this.ctx));
         //this.points.forEach(p => p.draw(this.ctx));
         if (this.selpoint) {
-            this.selpoint.draw(this.ctx, 5, 'red');
+            this.selpoint.draw(this.ctx, RAD, 'red');
         }
         this.points.forEach(p => {
             if (p.player) {
                 if (p.player === 'black') {
-                    fillCircle(this.ctx, p, 5, 'black');
+                    fillCircle(this.ctx, p, RAD, 'black');
                 } else if (p.player === 'white') {
-                    fillCircle(this.ctx, p, 5, 'white');
-                    strokeCircle(this.ctx, p, 5, 'black');
+                    fillCircle(this.ctx, p, RAD, 'white');
+                    strokeCircle(this.ctx, p, RAD, 'black');
                 }
             } else if (p.hover) {
                 if (this.player == 'black') {
-                    fillCircle(this.ctx, p, 5, 'black');
+                    fillCircle(this.ctx, p, RAD, 'black');
                 } else {
-                    fillCircle(this.ctx, p, 5, 'white');
-                    strokeCircle(this.ctx, p, 5, 'black');
+                    fillCircle(this.ctx, p, RAD, 'white');
+                    strokeCircle(this.ctx, p, RAD, 'black');
                 }
             }
 
@@ -349,6 +346,7 @@ class Board {
     
     click(x, y) {
         const cp = new Point(x, y);
+        let good = false;
         this.points.forEach(p => {
             if (p.player) {
                 return;
@@ -366,9 +364,11 @@ class Board {
                     this.loadPoints(sav);
                     return;
                 }
+                good = true;
                 this.history.push(JSON.stringify(sav));
             }
         });
+        return good;
     }
 
     pointsInHistory(ps) {
