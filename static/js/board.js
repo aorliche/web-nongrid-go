@@ -357,8 +357,8 @@ class Board {
                 const sav = this.savePoints();
                 p.player = this.player;
                 this.player = this.player == 'black' ? 'white' : 'black';
-                this.cullCaptured('black');
-                this.cullCaptured('white');
+                this.cullCaptured(this.player);
+                this.cullCaptured(this.player == 'black' ? 'white' : 'black');
                 if (this.pointsInHistory(this.savePoints())) {
                     this.player = this.player == 'black' ? 'white' : 'black';
                     this.loadPoints(sav);
