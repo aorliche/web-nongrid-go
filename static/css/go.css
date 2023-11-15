@@ -7,6 +7,16 @@
 #side {
     margin-left: 20px;
 }
+#chat {
+    width: 100%;
+    height: 140px;
+}
+#message {
+    width: 100%;
+}
+#chat-div {
+    margin-bottom: 10px;
+}
 select[name='games-list'] {
     margin-bottom: 10px;
     width: 280px;

@@ -33,6 +33,11 @@ function setupListeners(game) {
             game.board.player = json.Player;
             return;
         }
+        if (json.Action == "Chat") {
+            $('#chat').value += `${json.Player}: ${json.Payload}\n`;
+            $('#chat').scrollTop = $('#chat').scrollHeight;
+            return;
+        }
     }
 }   
 
@@ -82,7 +87,22 @@ window.addEventListener('load', () => {
         if (!res) return;
         game.board.repaint();
         game.conn.send(JSON.stringify({Action: 'Move', Key: game.id, Payload: JSON.stringify(game.board.savePoints())}));
+        game.conn.send(JSON.stringify({Key: game.id, Action: 'Chat', Payload: `has moved`}));
     });
+
+    function sendMessage() {
+        if (!game || !game.conn) return;
+        game.conn.send(JSON.stringify({Key: game.id, Action: 'Chat', Payload: $('#message').value}));
+        $('#message').value = '';
+    }
+
+    $('#message').addEventListener('keyup', (e) => {
+        if (e.key == 'Enter' || e.keyCode == 13) {
+            sendMessage();
+        }
+    });
+
+    $('#send').addEventListener('click', sendMessage);
 
     // This conn only used for listing games
     conn.onmessage = e => {

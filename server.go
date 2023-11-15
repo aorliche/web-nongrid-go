@@ -108,20 +108,20 @@ func Socket(w http.ResponseWriter, r *http.Request) {
         var req Request
         json.NewDecoder(bytes.NewBuffer(msg)).Decode(&req)
         switch req.Action {
-            case "List":
-                keys := make([]int, 0)
-                for key := range games {
-                    // Check if game has not been joined by two players
-                    game := games[key]
-                    if len(game.Conns) < 2 {
-                        keys = append(keys, key)
-                    }
+            case "Chat":
+                game := games[req.Key]
+                if game == nil {
+                    log.Println("Game not found")
+                    continue    
                 }
-                jsn, _ := json.Marshal(keys)
-                err = conn.WriteMessage(websocket.TextMessage, jsn)
-                if err != nil {
-                    log.Println(err)
-                    continue
+                p := "Black";
+                if player == 1 {
+                    p = "White"
+                }
+                for _, conn := range game.Conns {
+                    reply := Request{Action: "Chat", Key: game.Key, Player: p, Payload: req.Payload}
+                    jsn, _ := json.Marshal(reply)
+                    conn.WriteMessage(websocket.TextMessage, jsn)
                 }
             case "New":  
                 if player != -1 {
