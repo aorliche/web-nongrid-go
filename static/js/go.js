@@ -38,6 +38,11 @@ function setupListeners(game) {
             $('#chat').scrollTop = $('#chat').scrollHeight;
             return;
         }
+        if (json.Action == "Pass") {
+            game.board.player = json.Player;
+            $('#chat').value += `${json.Payload}: has passed\n`;
+            $('#chat').scrollTop = $('#chat').scrollHeight;
+        }
     }
 }   
 
@@ -63,10 +68,12 @@ window.addEventListener('load', () => {
     });
 
     $('#join').addEventListener('click', () => {
+        const sel = $('select[name="games-list"]');    
+        if (sel.selectedIndex == -1) return;
+        const id = sel.options[sel.selectedIndex].value;
+        if (game && game.id == id) return;
         game = {board: new Board(canvas), player: 'white'};
         initBoard(game.board); 
-        const sel = $('select[name="games-list"]');    
-        const id = sel.options[sel.selectedIndex].value;
         game.conn = new WebSocket(`ws://${location.host}/ws`);
         game.id = parseInt(id);
         game.conn.onopen = () => {
@@ -103,6 +110,11 @@ window.addEventListener('load', () => {
     });
 
     $('#send').addEventListener('click', sendMessage);
+    $('#pass').addEventListener('click', () => {
+        if (!game || !game.conn) return;
+        if (game.board.player != game.player) return;
+        game.conn.send(JSON.stringify({Key: game.id, Action: 'Pass'}));
+    });
 
     // This conn only used for listing games
     conn.onmessage = e => {

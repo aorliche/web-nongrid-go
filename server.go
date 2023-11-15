@@ -108,6 +108,22 @@ func Socket(w http.ResponseWriter, r *http.Request) {
         var req Request
         json.NewDecoder(bytes.NewBuffer(msg)).Decode(&req)
         switch req.Action {
+            case "Pass":
+                game := games[req.Key]
+                if game == nil {
+                    log.Println("Game not found")
+                    continue    
+                }
+                next, passing := "white", "Black";
+                if player == 1 {
+                    next, passing = "black", "White"
+                }
+                game.Player = next
+                for _, conn := range game.Conns {
+                    reply := Request{Action: "Pass", Key: game.Key, Player: next, Payload: passing}
+                    jsn, _ := json.Marshal(reply)
+                    conn.WriteMessage(websocket.TextMessage, jsn)
+                }
             case "Chat":
                 game := games[req.Key]
                 if game == nil {
