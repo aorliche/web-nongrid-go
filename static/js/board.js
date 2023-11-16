@@ -475,4 +475,55 @@ class Board {
             }
         });
     }
+
+    getScores() {
+        const visited = new Set();
+        function expandGetEmptyScore(pid, neighbors, id2point) {
+            const frontier = [pid];
+            const region = new Set();
+            let player = null;
+            let contested = false;
+            while (frontier.length > 0) {
+                const id = frontier.pop();
+                const ns = neighbors[id];
+                for (let i=0; i<ns.length; i++) {
+                    if (frontier.includes(ns[i]) || region.has(ns[i])) {
+                        continue;
+                    }
+                    const ip = id2point[ns[i]];
+                    if (ip.player) {
+                        if (!player) {
+                            player = ip.player;
+                        } else if (player != ip.player) {
+                            contested = true;
+                        }
+                    } else {
+                        frontier.push(ns[i]);
+                    }
+                }
+                visited.add(id);
+                region.add(id);
+            }
+            return [contested, player, region.size];
+        }
+        let bscore = 0;
+        let wscore = 0;
+        this.points.forEach(p => {
+            if (!visited.has(p.id) && !p.player) {
+                const [contested, player, size] = expandGetEmptyScore(p.id, this.neighbors, this.id2point);
+                if (!contested) {
+                    if (player == 'black') {
+                        bscore += size;
+                    } else {
+                        wscore += size;
+                    }
+                }
+            } else if (p.player == 'black') {
+                bscore += 1;
+            } else if (p.player == 'white') {
+                wscore += 1;
+            }
+        });
+        return [bscore, wscore];
+    }
 }

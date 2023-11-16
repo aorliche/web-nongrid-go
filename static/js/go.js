@@ -1,4 +1,4 @@
-import {$, $$} from './util.js';
+import {$, $$, drawText} from './util.js';
 import {noFillFn, Board} from './board.js';
 import {Point, Edge, Polygon, randomEdgePoint} from './primitives.js';
 
@@ -31,6 +31,7 @@ function setupListeners(game) {
             game.board.loadPoints(pts);
             game.board.repaint();
             game.board.player = json.Player;
+            game.passes = 0;
             return;
         }
         if (json.Action == "Chat") {
@@ -41,7 +42,16 @@ function setupListeners(game) {
         if (json.Action == "Pass") {
             game.board.player = json.Player;
             $('#chat').value += `${json.Payload}: has passed\n`;
+            if (++game.passes >= 2) {
+                $('#chat').value += `Two passes in a row. The game is over!\n`;
+                const [bscore, wscore] = game.board.getScores();
+                const canvas = $('#canvas');
+                const ctx = canvas.getContext('2d');
+                drawText(ctx, `Black: ${bscore}`, new Point(canvas.width/2, 300), 'red', 'bold 48px sans', true);
+                drawText(ctx, `White: ${wscore}`, new Point(canvas.width/2, 350), 'red', 'bold 48px sans', true);
+            }
             $('#chat').scrollTop = $('#chat').scrollHeight;
+            return;
         }
     }
 }   
@@ -57,7 +67,7 @@ window.addEventListener('load', () => {
     let game = null;
 
     $('#new').addEventListener('click', () => {
-        game = {board: new Board(canvas), player: 'black'};
+        game = {board: new Board(canvas), player: 'black', passes: 0};
         initBoard(game.board); 
         const pts = game.board.savePoints();
         game.conn = new WebSocket(`ws://${location.host}/ws`);
@@ -72,7 +82,7 @@ window.addEventListener('load', () => {
         if (sel.selectedIndex == -1) return;
         const id = sel.options[sel.selectedIndex].value;
         if (game && game.id == id) return;
-        game = {board: new Board(canvas), player: 'white'};
+        game = {board: new Board(canvas), player: 'white', passes: 0};
         initBoard(game.board); 
         game.conn = new WebSocket(`ws://${location.host}/ws`);
         game.id = parseInt(id);
@@ -83,13 +93,13 @@ window.addEventListener('load', () => {
     });
     
     $('#canvas').addEventListener('mousemove', (e) => {
-        if (!game || !game.board || game.player != game.board.player) return;
+        if (!game || !game.board || game.player != game.board.player || game.passes >= 2) return;
         game.board.hover(e.offsetX, e.offsetY);
         game.board.repaint();
     });
 
     $('#canvas').addEventListener('click', (e) => {
-        if (!game || !game.board || game.player != game.board.player) return;
+        if (!game || !game.board || game.player != game.board.player || game.passes >= 2) return;
         const res = game.board.click(e.offsetX, e.offsetY);
         if (!res) return;
         game.board.repaint();
