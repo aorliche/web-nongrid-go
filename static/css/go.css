@@ -17,6 +17,13 @@
 #chat-div {
     margin-bottom: 10px;
 }
+#fillplan {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+#fillplan button, #boardplan button {
+    margin-left: 10px;
+}
 select[name='games-list'] {
     margin-bottom: 10px;
     width: 280px;

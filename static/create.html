@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Create Go Board</title>
+        <script src="js/create.js" type="module"></script>
+        <link rel="stylesheet" href="css/go.css">
+    </head>
+    <body>
+        <h1>Create Go Board</h1>
+        <div id='main'>
+            <canvas id='canvas' width='800' height='600'></canvas>
+            <div id='side'>
+                <h3>Controls</h3>
+                <p>One round of board growth</p>
+                <button id='nofill'>No Fill/Place</button>
+                <button id='fill3'>Triangles</button>
+                <button id='fill4'>Squares</button>
+                <button id='fill6'>Hexagons</button>
+                <ul id='fillplan'>
+                </ul>
+                <button id='fill'>Fill</button>
+                <button id='place'>Place</button>
+                <h3>Board Plan</h3>
+                <p>Entire board creation shedule</p>
+                <ul id='boardplan'>
+                </ul>
+                <button id='regen'>Regenerate</button>
+            </div>
+        </div>
+    </body>
+</html>
