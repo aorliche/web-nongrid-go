@@ -116,6 +116,10 @@ window.addEventListener('load', function(){
             alert('Name is empty or no boardplan');
             return;
         }
+        if (name.includes("/")) {
+            alert('Name cannot contain "/"');
+            return;
+        }
         const req = {Action: 'Save', Player: name, Payload: JSON.stringify(boardplan)};
         conn.send(JSON.stringify(req));
     });
