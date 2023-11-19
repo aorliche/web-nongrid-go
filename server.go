@@ -51,11 +51,13 @@ func NextGameIdx() int {
 func GetBoards() []string {
     dir, err := os.Open("boards")
     if err != nil {
-        log.Fatal(err)
+        log.Println(err)
+        return make([]string, 0)
     }
     files, err := dir.Readdir(0)
     if err != nil {
-        log.Fatal(err)
+        log.Println(err)
+        return make([]string, 0)
     }
     boards := make([]string, 0)
     for _, v := range files {
@@ -70,7 +72,8 @@ func GetBoards() []string {
 func GetBoard(name string) (string, error) {
     dat, err := os.ReadFile("boards/" + name)
     if err != nil {
-        log.Fatal(err)
+        log.Println(err)
+        return "", err
     }
     return string(dat), err
 }
@@ -78,7 +81,8 @@ func GetBoard(name string) (string, error) {
 func AddBoard(name string, json string) error {
     err := os.WriteFile("boards/" + name, []byte(json), 0644)
     if err != nil {
-        log.Fatal(err)
+        log.Println(err)
+        return err
     }
     return err
 }
