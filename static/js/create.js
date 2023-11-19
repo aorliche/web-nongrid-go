@@ -102,6 +102,7 @@ window.addEventListener('load', function(){
             }
             board.loop(arr);
         });
+        console.log(board.points.length);
         board.repaint();
     }
     $('#regen').addEventListener('click', e => {
