@@ -2,18 +2,42 @@ import {$, $$, drawText} from './util.js';
 import {noFillFn, Board} from './board.js';
 import {Point, Edge, Polygon, randomEdgePoint} from './primitives.js';
 
+let boardjson = null;
+
 function initBoard(board) {
-    board.loop([(a,b) => board.fill(a,6,b)]);
-    board.loop([(a,b) => board.fill(a,3,b)]);
-    board.loop([(a,b) => board.fill(a,4,b)]);
-    board.loop([(a,b) => board.fill(a,3,b)]);
-    board.loop([(a,b) => board.fill(a,4,b)]);
-    board.loop([(a,b) => board.fill(a,3,b)]);
-    board.loop([noFillFn, (a,b) => board.fill(a,4,b)]);
-    board.loop([(a,b) => board.placeOne(a,3,b)]);
-    board.loop([(a,b) => board.fill(a,6,b)]);
-    board.loop([(a,b) => board.fill(a,3,b)]);
-    board.loop([(a,b) => board.fill(a,3,b)]);
+    if (!boardjson) {
+        board.loop([(a,b) => board.fill(a,6,b)]);
+        board.loop([(a,b) => board.fill(a,3,b)]);
+        board.loop([(a,b) => board.fill(a,4,b)]);
+        board.loop([(a,b) => board.fill(a,3,b)]);
+        board.loop([(a,b) => board.fill(a,4,b)]);
+        board.loop([(a,b) => board.fill(a,3,b)]);
+        board.loop([noFillFn, (a,b) => board.fill(a,4,b)]);
+        board.loop([(a,b) => board.placeOne(a,3,b)]);
+        board.loop([(a,b) => board.fill(a,6,b)]);
+        board.loop([(a,b) => board.fill(a,3,b)]);
+        board.loop([(a,b) => board.fill(a,3,b)]);
+        board.initNeighbors();
+        board.repaint();
+        return;
+    }
+    const boardplan = JSON.parse(boardjson);
+    const fn = (typ, n) => {
+        if (n == 0) {
+            return noFillFn;
+        } else if (typ == 'fill') {
+            return (a, b) => board.fill(a,n,b);
+        } else {
+            return (a, b) => board.placeOne(a,n,b);
+        }
+    }
+    boardplan.forEach(round => {
+        const arr = [];
+        for (let i=0; i<round.sav.length; i++) {
+            arr.push(fn(round.typ, round.sav[i].n));
+        }
+        board.loop(arr);
+    });
     board.initNeighbors();
     board.repaint();
 }
@@ -26,6 +50,16 @@ function setupListeners(game) {
             return;
         }
         if (json.Action == "Join" || json.Action == "Move") {
+            // Regenerate board from boardplan if needed
+            if (json.Action == "Join") {
+                if (json.BoardPlan) {
+                    boardjson = json.BoardPlan;
+                } else {
+                    boardjson = null;
+                }
+                game.board = new Board($('#canvas'));
+                initBoard(game.board);
+            }
             const pts = JSON.parse(json.Payload);
             game.board.history.push(JSON.stringify(pts));
             game.board.loadPoints(pts);
@@ -72,7 +106,7 @@ window.addEventListener('load', () => {
         const pts = game.board.savePoints();
         game.conn = new WebSocket(`ws://${location.host}/ws`);
         game.conn.onopen = () => {
-            game.conn.send(JSON.stringify({Action: 'New', Payload: JSON.stringify(pts)}));
+            game.conn.send(JSON.stringify({Action: 'New', BoardPlan: boardjson ? boardjson : "", Payload: JSON.stringify(pts)}));
         };
         setupListeners(game);
     });
@@ -160,9 +194,47 @@ window.addEventListener('load', () => {
             }
         });
     }
+    
+    const connBoards = new WebSocket(`ws://${location.host}/boards`);
 
     setInterval(e => {
         if (!conn.readyState == 1) return;
         conn.send(JSON.stringify({Action: 'List'}));
     }, 1000);
+    
+    setInterval(e => {
+        if (!connBoards.readyState == 1) return;
+        connBoards.send(JSON.stringify({Action: 'List'}));
+    }, 1000);
+
+    $('#load').addEventListener('click', () => {
+        const idx = $('#boards').selectedIndex;
+        if (idx == -1) return;
+        const req = {Action: 'Load', Player: $('#boards').options[idx].innerText};
+        connBoards.send(JSON.stringify(req));
+    });
+
+    connBoards.onmessage = e => {
+        const msg = JSON.parse(e.data);
+        if (msg.Action == 'List') {
+            JSON.parse(msg.Payload).forEach(name => {
+                const existing = $$('#boards option');
+                let found = false;
+                for (let i=0; i<existing.length; i++) {
+                    if (existing[i].innerText == name) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    const opt = document.createElement('option');
+                    opt.innerText = name;
+                    $('#boards').appendChild(opt);
+                }
+            });
+        } else if (msg.Action == 'Load') {
+            boardjson = msg.Payload;
+            initBoard(new Board(canvas));
+        }
+    }
 });

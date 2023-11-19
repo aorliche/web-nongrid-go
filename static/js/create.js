@@ -4,7 +4,7 @@ import {noFillFn, Board} from './board.js';
 
 window.addEventListener('load', function(){
     const fillplan = [];
-    const boardplan = [];
+    let boardplan = [];
     function regenFillPlan() {
         $('#fillplan').innerHTML = '';
         for (let i=0; i<fillplan.length; i++) {
@@ -30,7 +30,7 @@ window.addEventListener('load', function(){
             for (let j=0; j<boardplan[i].sav.length; j++) {
                 round.push(boardplan[i].sav[j].txt);
             }
-            const txt = document.createTextNode(round);
+            const txt = document.createTextNode(`${boardplan[i].typ}: ${round}`);
             button.innerText = 'Delete';
             li.appendChild(txt);
             li.appendChild(button);
@@ -84,7 +84,7 @@ window.addEventListener('load', function(){
             return (a, b) => board.placeOne(a,n,b);
         });
     });
-    $('#regen').addEventListener('click', e => {
+    function repaintFromBoardPlan() {
         board = new Board($('#canvas'));
         const fn = (typ, n) => {
             if (n == 0) {
@@ -103,5 +103,59 @@ window.addEventListener('load', function(){
             board.loop(arr);
         });
         board.repaint();
+    }
+    $('#regen').addEventListener('click', e => {
+        repaintFromBoardPlan();
     });
+    
+    const conn = new WebSocket(`ws://${location.host}/boards`);
+
+    $('#upload').addEventListener('click', e => {
+        const name = $('#name').value.trim();
+        if (name == '' || boardplan.length == 0) {
+            alert('Name is empty or no boardplan');
+            return;
+        }
+        const req = {Action: 'Save', Player: name, Payload: JSON.stringify(boardplan)};
+        conn.send(JSON.stringify(req));
+    });
+
+    $('#load').addEventListener('click', e => {
+        const idx = $('#boards').selectedIndex;
+        if (idx == -1) return;
+        const req = {Action: 'Load', Player: $('#boards').options[idx].innerText};
+        conn.send(JSON.stringify(req));
+    });
+
+    conn.onmessage = e => {
+        const msg = JSON.parse(e.data);
+        if (msg.Action == 'List') {
+            JSON.parse(msg.Payload).forEach(name => {
+                const existing = $$('#boards option');
+                let found = false;
+                for (let i=0; i<existing.length; i++) {
+                    if (existing[i].innerText == name) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    const opt = document.createElement('option');
+                    opt.innerText = name;
+                    $('#boards').appendChild(opt);
+                }
+            });
+        } else if (msg.Action == 'Load') {
+            boardplan = JSON.parse(msg.Payload);
+            regenBoardPlan();
+            repaintFromBoardPlan();
+        } else if (msg.Action == 'Save') {
+            alert(msg.Payload);
+        }
+    }
+    
+    setInterval(e => {
+        if (!conn.readyState == 1) return;
+        conn.send(JSON.stringify({Action: 'List'}));
+    }, 1000);
 });

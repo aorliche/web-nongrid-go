@@ -22,6 +22,7 @@ type Game struct {
     Key int
     Player string
     Json string
+    BoardPlan string
     Mutex sync.Mutex
     Conns []*websocket.Conn
 }
@@ -31,6 +32,7 @@ type Request struct {
     Action string
     Payload string
     Player string
+    BoardPlan string
 }
 
 var games = make(map[int]*Game)
@@ -44,6 +46,123 @@ func NextGameIdx() int {
         }
     }
     return max+1
+}
+
+func GetBoards() []string {
+    dir, err := os.Open("boards")
+    if err != nil {
+        log.Fatal(err)
+    }
+    files, err := dir.Readdir(0)
+    if err != nil {
+        log.Fatal(err)
+    }
+    boards := make([]string, 0)
+    for _, v := range files {
+        if v.IsDir() {
+            continue
+        }
+        boards = append(boards, v.Name())
+    }
+    return boards
+}
+
+func GetBoard(name string) (string, error) {
+    dat, err := os.ReadFile("boards/" + name)
+    if err != nil {
+        log.Fatal(err)
+    }
+    return string(dat), err
+}
+
+func AddBoard(name string, json string) error {
+    err := os.WriteFile("boards/" + name, []byte(json), 0644)
+    if err != nil {
+        log.Fatal(err)
+    }
+    return err
+}
+
+func BoardsSocket(w http.ResponseWriter, r *http.Request) {
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        log.Println(err)
+        return
+    }
+    defer conn.Close()
+    for {
+        msgType, msg, err := conn.ReadMessage()
+        if err != nil {
+            log.Println(err)
+            return  
+        }
+        // Do we ever get any other types of messages?
+        if msgType != websocket.TextMessage {
+            log.Println("Not a text message")
+            return
+        }
+        var req Request
+        json.NewDecoder(bytes.NewBuffer(msg)).Decode(&req)
+        switch req.Action {
+            // Add a board
+            // Reuse some request fields for a different purpose
+            case "Save":
+                name := req.Player
+                exists := false
+                for _, b := range GetBoards() {
+                    if b == name {
+                        exists = true
+                        continue
+                    }
+                }
+                var msg string
+                if exists {
+                    msg = "Board " + name + " already exists"
+                    log.Println(msg)
+                } else {
+                    err = AddBoard(name, req.Payload)
+                    if err != nil {
+                        log.Println(err)
+                        msg = err.Error()
+                    } else {
+                        msg = "Success"
+                    }
+                }
+                reply := Request{Action: "Save", Payload: msg}
+                jsn, _ := json.Marshal(reply)
+                err = conn.WriteMessage(websocket.TextMessage, jsn)
+                if err != nil {
+                    log.Println(err)
+                    continue
+                }
+            // List boards
+            case "List":
+                boards := GetBoards()
+                jsn, _ := json.Marshal(boards)
+                reply := Request{Action: "List", Payload: string(jsn)}
+                jsn, _ = json.Marshal(reply)
+                err = conn.WriteMessage(websocket.TextMessage, jsn)
+                if err != nil {
+                    log.Println(err)
+                    continue
+                }
+            // Load a board plan
+            case "Load":
+                name := req.Player
+                board, err := GetBoard(name)
+                if err != nil {
+                    log.Println(err)
+                    continue
+                }
+                reply := Request{Action: "Load", Payload: board}
+                jsn, _ := json.Marshal(reply)
+                err = conn.WriteMessage(websocket.TextMessage, jsn)
+                if err != nil {
+                    log.Println(err)
+                    continue
+                }
+        }
+    }
 }
 
 func ListSocket(w http.ResponseWriter, r *http.Request) {
@@ -145,7 +264,7 @@ func Socket(w http.ResponseWriter, r *http.Request) {
                     continue
                 }
                 player = 0
-                game := &Game{Key: NextGameIdx(), Json: req.Payload, Conns: make([]*websocket.Conn, 1), Player: "black"}
+                game := &Game{Key: NextGameIdx(), BoardPlan: req.BoardPlan, Json: req.Payload, Conns: make([]*websocket.Conn, 1), Player: "black"}
                 game.Conns[0] = conn
                 games[game.Key] = game
                 reply := Request{Action: "New", Key: game.Key} 
@@ -165,7 +284,7 @@ func Socket(w http.ResponseWriter, r *http.Request) {
                     continue
                 }
                 // Next player
-                reply := Request{Action: "Join", Key: game.Key, Payload: game.Json, Player: game.Player}
+                reply := Request{Action: "Join", Key: game.Key, Payload: game.Json, BoardPlan: game.BoardPlan, Player: game.Player}
                 jsn, _ := json.Marshal(reply)
                 game.Conns[0].WriteMessage(websocket.TextMessage, jsn)
                 game.Conns[1].WriteMessage(websocket.TextMessage, jsn)
@@ -234,5 +353,6 @@ func main() {
     ServeLocalFiles([]string{"", "/js", "/css"})
     http.HandleFunc("/ws", Socket)
     http.HandleFunc("/list", ListSocket)
+    http.HandleFunc("/boards", BoardsSocket)
     log.Fatal(http.ListenAndServe(":8001", nil))
 }
