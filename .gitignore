@@ -1,6 +1,7 @@
 *
 !/**/
-!boards/*
+#!boards/*
+boards
 !*.*
 *.bak
 !Makefile

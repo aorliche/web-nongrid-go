@@ -140,7 +140,8 @@ class Polygon {
         }
     }
 
-   contains(p) {
+    // Point inside the polygon
+    contains(p) {
         for (let i=0; i<this.edges.length; i++) {
             // Not sure about edge direction, use center as reference point
             let ref = ccw(this.edges[i].points[0], this.edges[i].points[1], this.cp);
@@ -167,6 +168,18 @@ class Polygon {
         ctx.fillStyle = this.color ? this.color : '#f99';
         ctx.fill();
         ctx.restore();*/
+    }
+
+    // One of the points on the edge of the polygon
+    edgeHas(p) {
+        let found = false;
+        for (let i=0; i<this.edges.length; i++) {
+            if (this.edges[i].points[0].nearby(p) || this.edges[i].points[1].nearby(p)) {
+                found = true;
+                break;
+            }
+        }
+        return found;
     }
 
     pointsNextTo(p) {

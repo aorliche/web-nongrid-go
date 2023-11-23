@@ -421,6 +421,17 @@ class Board {
         this.points.forEach(p1 => {
             this.points.forEach(p2 => {
                 if (approx(p1.dist(p2), EDGE_LEN)) {
+                    // Check that p1 and p2 are part of the same polygon
+                    // It can be that they aren't (on edge of board)
+                    let found = false;
+                    for (let i=0; i<this.polys.length; i++) {
+                        const poly = this.polys[i];
+                        if (poly.edgeHas(p1) && poly.edgeHas(p2)) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) return;
                     if (!this.neighbors[p1.id]) {
                         this.neighbors[p1.id] = [];
                     }
