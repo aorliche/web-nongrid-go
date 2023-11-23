@@ -47,6 +47,9 @@ function setupListeners(game) {
         const json = JSON.parse(e.data);
         if (json.Action == "New") {
             game.id = json.Key;
+            $('#vertices').innerText = game.board.points.length;
+            $('#black').innerText = '';
+            $('#white').innerText = '';
             return;
         }
         if (json.Action == "Join" || json.Action == "Move") {
@@ -59,6 +62,7 @@ function setupListeners(game) {
                 }
                 game.board = new Board($('#canvas'));
                 initBoard(game.board);
+                $('#vertices').innerText = game.board.points.length;
             }
             const pts = JSON.parse(json.Payload);
             game.board.history.push(JSON.stringify(pts));
@@ -66,6 +70,9 @@ function setupListeners(game) {
             game.board.repaint();
             game.board.player = json.Player;
             game.passes = 0;
+            const [bscore, wscore] = game.board.getScores();
+            $('#black').innerText = bscore;
+            $('#white').innerText = wscore;
             return;
         }
         if (json.Action == "Chat") {
@@ -85,6 +92,16 @@ function setupListeners(game) {
                 drawText(ctx, `White: ${wscore}`, new Point(canvas.width/2, 350), 'red', 'bold 48px sans', true);
             }
             $('#chat').scrollTop = $('#chat').scrollHeight;
+            return;
+        }
+        if (json.Action == "Concede") {
+            $('#chat').value += `Concession!\n`;
+            $('#chat').value += `${json.Payload} wins!\n`;
+            $('#chat').scrollTop = $('#chat').scrollHeight;
+            const ctx = canvas.getContext('2d');
+            drawText(ctx, `${json.Payload} wins!`, new Point(canvas.width/2, 300), 'red', 'bold 48px sans', true);
+            // Manually end the game
+            game.passes = 2;
             return;
         }
     }
@@ -237,4 +254,9 @@ window.addEventListener('load', () => {
             initBoard(new Board(canvas));
         }
     }
+
+    $('#concede').addEventListener('click', () => {
+        if (!game || !game.conn) return;
+        game.conn.send(JSON.stringify({Key: game.id, Action: 'Concede'}));
+    });
 });

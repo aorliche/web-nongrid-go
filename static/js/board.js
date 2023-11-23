@@ -519,6 +519,18 @@ class Board {
         }
         let bscore = 0;
         let wscore = 0;
+        // Check for no moves
+        let move = false;
+        for (let i=0; i<this.points.length; i++) {
+            if (this.points[i].player) {
+                move = true;
+                break;
+            }
+        }
+        console.log(move, bscore, wscore);
+        if (!move) {
+            return [bscore, wscore];
+        }
         this.points.forEach(p => {
             if (!visited.has(p.id) && !p.player) {
                 const [contested, player, size] = expandGetEmptyScore(p.id, this.neighbors, this.id2point);
