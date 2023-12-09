@@ -48,6 +48,7 @@ window.addEventListener('load', function(){
             case 3: fillplan.push({n, txt: 'Triangles'}); break;
             case 4: fillplan.push({n, txt: 'Squares'}); break;
             case 6: fillplan.push({n, txt: 'Hexagons'}); break;
+            case 12: fillplan.push({n, txt: 'Dodecagons'}); break;
         }
         regenFillPlan();
     }
@@ -55,6 +56,7 @@ window.addEventListener('load', function(){
     $('#fill3').addEventListener('click', e => addShape(3));
     $('#fill4').addEventListener('click', e => addShape(4));
     $('#fill6').addEventListener('click', e => addShape(6));
+    $('#fill12').addEventListener('click', e => addShape(12));
     let board = new Board($('#canvas'));
     function fillOrPlaceBtnCb(typ, fn) {
         const arr = [];
@@ -66,6 +68,7 @@ window.addEventListener('load', function(){
                 case 3: arr.push(fn(3)); break;
                 case 4: arr.push(fn(4)); break;
                 case 6: arr.push(fn(6)); break;
+                case 12: arr.push(fn(12)); break;
             }
         }
         board.loop(arr);
