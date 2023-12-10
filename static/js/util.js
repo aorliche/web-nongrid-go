@@ -59,10 +59,13 @@ function fillCircle(ctx, c, r, color) {
     ctx.restore();
 }
 
-function strokeCircle(ctx, c, r, color) {
+function strokeCircle(ctx, c, r, color, width) {
+    ctx.save();
     ctx.strokeStyle = color;
+    if (width) ctx.lineWidth = width;
     ctx.beginPath();
     ctx.arc(c.x, c.y, r, 0, 2*Math.PI);
     ctx.closePath();
     ctx.stroke();
+    ctx.restore();
 }

@@ -42,6 +42,17 @@ function initBoard(board) {
     board.repaint();
 }
 
+function getLastMove(hist, cur) {
+    if (hist.length == 0) return;
+    const last = JSON.parse(hist[hist.length-1]);
+    for (let i=0; i<last.length; i++) {
+        if (last[i].player != cur[i].player) {
+            return last[i].id;
+        }
+    }
+    return null;
+}
+
 function setupListeners(game) {
     game.conn.onmessage = e => {
         const json = JSON.parse(e.data);
@@ -65,6 +76,7 @@ function setupListeners(game) {
                 $('#vertices').innerText = game.board.points.length;
             }
             const pts = JSON.parse(json.Payload);
+            game.board.lastId = getLastMove(game.board.history, pts);
             game.board.history.push(JSON.stringify(pts));
             game.board.loadPoints(pts);
             game.board.repaint();

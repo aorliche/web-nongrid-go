@@ -329,6 +329,9 @@ class Board {
             }
 
         });
+        if (this.lastId || this.lastId === 0) {
+            strokeCircle(this.ctx, this.points[this.lastId], RAD, 'red', 2);
+        }
         if (showNext) {
             this.nextFromCenter().forEach((p,i) => {
                 fillCircle(this.ctx, p, RAD, 'black');
@@ -536,7 +539,7 @@ class Board {
                 break;
             }
         }
-        console.log(move, bscore, wscore);
+        //console.log(move, bscore, wscore);
         if (!move) {
             return [bscore, wscore];
         }
