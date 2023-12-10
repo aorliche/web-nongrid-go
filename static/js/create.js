@@ -72,7 +72,7 @@ window.addEventListener('load', function(){
             }
         }
         board.loop(arr);
-        board.repaint();
+        board.repaint(true);
         // Save for regen
         boardplan.push({typ, sav});
         regenBoardPlan();
@@ -106,7 +106,7 @@ window.addEventListener('load', function(){
             board.loop(arr);
         });
         console.log(board.points.length);
-        board.repaint();
+        board.repaint(true);
     }
     $('#regen').addEventListener('click', e => {
         repaintFromBoardPlan();

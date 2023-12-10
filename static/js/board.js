@@ -303,7 +303,7 @@ class Board {
         return false;
     }
 
-    repaint() {
+    repaint(showNext) {
         const RAD = 10;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.polys.forEach(p => p.draw(this.ctx));
@@ -329,6 +329,15 @@ class Board {
             }
 
         });
+        if (showNext) {
+            this.nextFromCenter().forEach((p,i) => {
+                fillCircle(this.ctx, p, RAD, 'black');
+                this.ctx.save();
+                this.ctx.strokeStyle = 'red';
+                this.ctx.strokeText(i+1, p.x-3, p.y+3);
+                this.ctx.restore();
+            });
+        }
     }
     
     hover(x, y) {
