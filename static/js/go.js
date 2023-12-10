@@ -46,7 +46,7 @@ function getLastMove(hist, cur) {
     if (hist.length == 0) return;
     const last = JSON.parse(hist[hist.length-1]);
     for (let i=0; i<last.length; i++) {
-        if (last[i].player != cur[i].player) {
+        if (last[i].player != cur[i].player && cur[i].player != null) {
             return last[i].id;
         }
     }
