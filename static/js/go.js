@@ -1,5 +1,5 @@
 import {$, $$, drawText} from './util.js';
-import {noFillFn, Board} from './board.js';
+import {noFillFn, neverFillFn, Board} from './board.js';
 import {Point, Edge, Polygon, randomEdgePoint} from './primitives.js';
 
 let boardjson = null;
@@ -23,7 +23,9 @@ function initBoard(board) {
     }
     const boardplan = JSON.parse(boardjson);
     const fn = (typ, n) => {
-        if (n == 0) {
+        if (n == -1) {
+            return neverFillFn;
+        } else if (n == 0) {
             return noFillFn;
         } else if (typ == 'fill') {
             return (a, b) => board.fill(a,n,b);

@@ -1,5 +1,5 @@
 
-export {noFillFn, Board};
+export {noFillFn, neverFillFn, Board};
 
 import {approx, dist, fillCircle, strokeCircle} from './util.js';
 import {EDGE_LEN, Point, Edge, Polygon, polyDistFromN, randomEdgePoint, thetaFromN} from './primitives.js';
@@ -76,6 +76,10 @@ function noFillFn() {
     return true;
 }
 
+function neverFillFn() {
+    return true;
+}
+
 function pointFreeAngle(p) {
     let sum = 0;
     p.polys.forEach(poly => {
@@ -92,6 +96,8 @@ class Board {
         this.polys = [];
         this.points = [];
         this.player = 'black';
+        // Points that are never filled/placed on
+        this.nofillpts = [];
     }
 
     addPoly(poly) {
@@ -172,6 +178,9 @@ class Board {
                 for (let k=0; k<points.length; k++) {
                     const j = (k+offset) % fns.length;
                     const fn = fns[j];
+                    if (fn == neverFillFn) {
+                        this.nofillpts.push(points[k]);
+                    }
                     if (!fn(points[k], true)) {
                         console.log('Failed');
                         throw 'bad';
@@ -218,12 +227,6 @@ class Board {
         }
         return true;
     }
-
-    neighbors(poly) {
-        for (let i=0; i<this.points.length; i++) {
-            
-        }
-    }
     
     nextFromCenter() {
         const cp = new Point(this.canvas.width/2, this.canvas.height/2);
@@ -231,6 +234,10 @@ class Board {
         let set = [];
         this.points.forEach(p => {
             if (nearby(pointFreeAngle(p), 0)) {
+                return;
+            }
+            // Never placed
+            if (this.nofillpts.includes(p)) {   
                 return;
             }
             const d = cp.sub(p).mag();

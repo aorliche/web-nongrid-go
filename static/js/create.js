@@ -1,6 +1,6 @@
 
 import {$, $$} from './util.js';
-import {noFillFn, Board} from './board.js';
+import {noFillFn, neverFillFn, Board} from './board.js';
 
 window.addEventListener('load', function(){
     const fillplan = [];
@@ -44,6 +44,7 @@ window.addEventListener('load', function(){
     }
     function addShape(n) {
         switch (n) {
+            case -1: fillplan.push({n, txt: 'Never'}); break;
             case 0: fillplan.push({n, txt: 'Skip'}); break;
             case 3: fillplan.push({n, txt: 'Triangles'}); break;
             case 4: fillplan.push({n, txt: 'Squares'}); break;
@@ -53,6 +54,7 @@ window.addEventListener('load', function(){
         regenFillPlan();
     }
     $('#nofill').addEventListener('click', e => addShape(0));
+    $('#neverfill').addEventListener('click', e => addShape(-1));
     $('#fill3').addEventListener('click', e => addShape(3));
     $('#fill4').addEventListener('click', e => addShape(4));
     $('#fill6').addEventListener('click', e => addShape(6));
@@ -64,6 +66,7 @@ window.addEventListener('load', function(){
         for (let i=0; i<fillplan.length; i++) {
             sav.push(fillplan[i]);
             switch (fillplan[i].n) {
+                case -1: arr.push(neverFillFn); break;
                 case 0: arr.push(noFillFn); break;
                 case 3: arr.push(fn(3)); break;
                 case 4: arr.push(fn(4)); break;
@@ -90,7 +93,9 @@ window.addEventListener('load', function(){
     function repaintFromBoardPlan() {
         board = new Board($('#canvas'));
         const fn = (typ, n) => {
-            if (n == 0) {
+            if (n == -1) {
+                return neverFillFn;
+            } if (n == 0) {
                 return noFillFn;
             } else if (typ == 'fill') {
                 return (a, b) => board.fill(a,n,b);
