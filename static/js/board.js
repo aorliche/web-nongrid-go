@@ -310,11 +310,12 @@ class Board {
         return false;
     }
 
+    // Shownext also displays never fill/place points
     repaint(showNext) {
         const RAD = 10;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.polys.forEach(p => p.draw(this.ctx));
-        //this.points.forEach(p => p.draw(this.ctx));
+        // selpoint not used anymore
         if (this.selpoint) {
             this.selpoint.draw(this.ctx, RAD, 'red');
         }
@@ -346,6 +347,9 @@ class Board {
                 this.ctx.strokeStyle = 'red';
                 this.ctx.strokeText(i+1, p.x-3, p.y+3);
                 this.ctx.restore();
+            });
+            this.nofillpts.forEach(p => {
+                fillCircle(this.ctx, p, RAD, 'gray');
             });
         }
     }
