@@ -3,6 +3,7 @@ import {noFillFn, neverFillFn, Board} from './board.js';
 import {Point, Edge, Polygon, randomEdgePoint} from './primitives.js';
 
 let boardjson = null;
+let aigame = false;
 
 function initBoard(board) {
     if (!boardjson) {
@@ -89,6 +90,18 @@ function setupListeners(game) {
             $('#white').innerText = wscore;
             return;
         }
+        if (json.Action == "Move-AI") {
+            let pts = JSON.parse(json.Payload);
+            for (let i=0; i<pts.length; i++) {
+                let p = null;
+                if (pts[i] == 0) {
+                    p = 'black';
+                } else if (pts[i] == 1) {
+                    p = 'white';
+                }
+                pts[i] = {player: p};
+            }
+        }
         if (json.Action == "Chat") {
             $('#chat').value += `${json.Player}: ${json.Payload}\n`;
             $('#chat').scrollTop = $('#chat').scrollHeight;
@@ -132,6 +145,7 @@ window.addEventListener('load', () => {
     let game = null;
 
     $('#new').addEventListener('click', () => {
+        aigame = false;
         game = {board: new Board(canvas), player: 'black', passes: 0};
         initBoard(game.board); 
         const pts = game.board.savePoints();
@@ -142,7 +156,34 @@ window.addEventListener('load', () => {
         setupListeners(game);
     });
 
+    function getPointsNeighbors(game) {
+        const pts = game.board.savePoints();
+        const ns = game.board.neighbors();
+        const nns = [];
+        for (let i=0; i<pts.length; i++) {
+            nns.push(ns[i]);
+        }
+        return JSON.stringify({Points: pts, Neighbors: nns});
+    }
+
+    // We don't send a board plan, we
+    $('#new-black').addEventListener('click', () => {
+        aigame = true;
+        game = {board: new Board(canvas), player: 'black', passes: 0};
+        initBoard(game.board); 
+        game.conn = new WebSocket(`ws://${location.host}/ws`);
+        game.conn.onopen = () => {
+            game.conn.send(JSON.stringify({
+                Action: 'New-AI', 
+                BoardPlan: boardjson ? boardjson : "", 
+                Payload: getPointsNeighbors(game)
+            }));
+        };
+        setupListeners(game);
+    })
+
     $('#join').addEventListener('click', () => {
+        aigame = false;
         const sel = $('select[name="games-list"]');    
         if (sel.selectedIndex == -1) return;
         const id = sel.options[sel.selectedIndex].value;
@@ -168,8 +209,12 @@ window.addEventListener('load', () => {
         const res = game.board.click(e.offsetX, e.offsetY);
         if (!res) return;
         game.board.repaint();
-        game.conn.send(JSON.stringify({Action: 'Move', Key: game.id, Payload: JSON.stringify(game.board.savePoints())}));
-        game.conn.send(JSON.stringify({Key: game.id, Action: 'Chat', Payload: `has moved`}));
+        if (aigame) {
+            game.conn.send(JSON.stringify({Action: 'Move-AI', Key: game.id, Payload: getPointsNeighbors(game)}));
+        } else {
+            game.conn.send(JSON.stringify({Action: 'Move', Key: game.id, Payload: JSON.stringify(game.board.savePoints())}));
+            game.conn.send(JSON.stringify({Key: game.id, Action: 'Chat', Payload: `has moved`}));
+        }
     });
 
     function sendMessage() {

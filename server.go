@@ -9,6 +9,7 @@ import (
     "sync"
 
     "github.com/gorilla/websocket"
+    ai "github.com/aorliche/web-nongrid-go/ai"
 )
 
 // Rules engine is handled in Javascript by player starting the game
@@ -25,6 +26,7 @@ type Game struct {
     BoardPlan string
     Mutex sync.Mutex
     Conns []*websocket.Conn
+    RecvChan chan bool
 }
 
 type Request struct {
@@ -33,6 +35,34 @@ type Request struct {
     Payload string
     Player string
     BoardPlan string
+}
+
+type PointsNeighbors struct {
+    Points []string
+    Neighbors [][]int
+}
+
+func StringPointsToInts(s []string) []int {
+    ints := make([]int, len(s))
+    for i, ss := range s {
+        if ss == 'black' {
+            ints[i] = 0
+        } else if ss == 'white' {
+            ints[i] = 1
+        } else {
+            ints[i] = -1
+        }
+    }
+    return ints
+}
+
+func (pn *PointsNeighbors) ToBoard() *ai.Board {
+    return &ai.Board{
+        Points: StringPointsToInts(pn.Points),
+        Neighbors: pn.Neighbors,
+        NPlayers: 2,
+        Turn: 0,
+    }
 }
 
 var games = make(map[int]*Game)
@@ -209,6 +239,34 @@ func ListSocket(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+func GameLoop(game *Game, nplay int, history *[]*Board, recvChan chan bool, sendChans []chan bool) {
+    board := (*history)[0]
+    for {
+        fmt.Println("A", board)
+        for i := 0; i < nplay; i++ {
+            sendChans[i] <- true
+        }
+        if board.GameOver(*history) {
+            fmt.Println("D", board)
+            fmt.Println(board.GetScores())
+            break
+        }
+        val := <- recvChan
+        board = (*history)[len(*history) - 1]
+        game.Mutex.Lock()
+        player := "black"
+        if board.Turn % 2 == 1 {
+            player = "white"
+        }
+        jsn2, _ := json.Marshal(board.Points)
+        reply := Request{Action: "Move-AI", Key: game.Key, Payload: jsn2, Player: player}
+        jsn, _ := json.Marshal(reply)
+        game.Conns[0].WriteMessage(websocket.TextMessage, jsn)
+        game.Mutex.Unlock()
+        fmt.Println("C", val, board)
+    }
+}
+
 func Socket(w http.ResponseWriter, r *http.Request) {
     conn, err := upgrader.Upgrade(w, r, nil)
     if err != nil {
@@ -289,6 +347,32 @@ func Socket(w http.ResponseWriter, r *http.Request) {
                 reply := Request{Action: "New", Key: game.Key} 
                 jsn, _ := json.Marshal(reply)
                 conn.WriteMessage(websocket.TextMessage, jsn)
+            case "New-AI":
+                player = 0
+                game := &Game{Key: NextGameIdx(), BoardPlan: req.BoardPlan, Json: "", Conns: make([]*websocket.Conn, 1), Player: "black"}
+                game.Conns[0] = conn
+                games[game.Key] = game
+                reply := Request{Action: "New", Key: game.Key} 
+                jsn, _ := json.Marshal(reply)
+                conn.WriteMessage(websocket.TextMessage, jsn)
+                var pn PointsNeighbors 
+                err := json.Unmarshal([]byte(req.Payload), &pn)
+                if err != nil {
+                    log.Println(err)
+                    continue
+                }
+                board := pn.ToBoard()
+                // Start ai 
+                nplay := 2
+                history := []*ai.Board{board}
+                recvChan := make(chan bool)
+                sendChans := make([]chan bool, 0)
+                game.RecvChan = recvChan
+                for i := 0; i < nplay; i++ {
+                    sendChans = append(sendChans, make(chan bool))
+                    go ai.Loop(i, &history, sendChans[i], recvChan, 10, 1000, 10)
+                }
+                go GameLoop(game, board, nplay, &history, recvChan, sendChans)
             case "Join": 
                 if player != -1 {
                     log.Println("Player already joined")
@@ -322,6 +406,25 @@ func Socket(w http.ResponseWriter, r *http.Request) {
                 if len(game.Conns) == 2 {
                     game.Conns[1].WriteMessage(websocket.TextMessage, jsn)
                 }
+                game.Mutex.Unlock()
+            case "Move-AI":
+                game := games[req.Key]
+                game.Mutex.Lock()
+                err := json.Unmarshal([]byte(req.Payload), &pn)
+                if err != nil {
+                    log.Println(err)
+                    continue
+                }
+                if player == 0 {
+                    game.Player = "white"
+                } else {
+                    game.Player = "black"
+                }
+                jsn2, _ := json.Marshal(pn.ToBoard().Points)
+                reply := Request{Action: "Move-AI", Key: game.Key, Payload: jsn2, Player: game.Player}
+                jsn, _ := json.Marshal(reply)
+                game.Conns[0].WriteMessage(websocket.TextMessage, jsn)
+                game.RecvChan <- true
                 game.Mutex.Unlock()
         }
     }
