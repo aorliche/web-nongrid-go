@@ -216,6 +216,7 @@ func (board *Board) GetScores() []int {
 
 type Stats struct {
     Scores []int
+    Stones []int
     Libs [][]int
     LibDangers []float64
 }
@@ -223,6 +224,14 @@ type Stats struct {
 func (board *Board) GetStats() *Stats {
     stats := &Stats{}
     stats.Scores = board.GetScores()
+    stats.Stones = make([]int, board.NPlayers)
+    for i := 0; i < board.NPlayers; i++ {
+        for _, p := range board.Points {
+            if p == i {
+                stats.Stones[i] += 1
+            }
+        }
+    }
     stats.Libs = make([][]int, 0)
     stats.LibDangers = make([]float64, 0)
     for i := 0; i < board.NPlayers; i++ {
@@ -234,6 +243,7 @@ func (board *Board) GetStats() *Stats {
                 case 1: danger += 2.0
                 case 2: danger += 0.75
                 case 3: danger += 0.25
+                case 4: danger += 0.1
             }
         }
         stats.LibDangers = append(stats.LibDangers, danger)
@@ -241,15 +251,19 @@ func (board *Board) GetStats() *Stats {
     return stats
 }
 
-// 1. Maximize your score
-// 2. Minimize your opponent's score
+// 1. Maximize your (stone count) score
+// 2. Minimize your (stone count) opponent's score
 // 3. Maximize your liberties
 // 4. Minimize your opponent's liberties
+// 5. Minimize number of islands
+// 6. Maximize opponent's number of islands
 func (board *Board) Eval(before *Stats, me int) float64 {
     after := board.GetStats()
     a := float64(after.Scores[me] - before.Scores[me] + before.Scores[1-me] - after.Scores[1-me])
     b := before.LibDangers[me] - after.LibDangers[me] + after.LibDangers[1-me] - before.LibDangers[1-me]
-    return a+b
+    c := 0.3*float64(len(before.Libs[me]) - len(after.Libs[me]) + len(after.Libs[1-me]) - len(before.Libs[1-me]))
+    d := float64(after.Stones[me] - before.Stones[me] + before.Stones[1-me] - after.Stones[1-me])
+    return a+b+c+d
 }
 
 func (board *Board) GameOver(history []*Board) bool {
