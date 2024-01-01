@@ -59,6 +59,14 @@ function getLastMove(hist, cur) {
 function setupListeners(game) {
     game.conn.onmessage = e => {
         const json = JSON.parse(e.data);
+        if (json.Action == "New-AI") {
+            console.log(json);
+            game.id = json.Key;
+            $('#vertices').innerText = game.board.points.length;
+            $('#black').innerText = '';
+            $('#white').innerText = '';
+            return;
+        }
         if (json.Action == "New") {
             game.id = json.Key;
             $('#vertices').innerText = game.board.points.length;
@@ -91,15 +99,25 @@ function setupListeners(game) {
             return;
         }
         if (json.Action == "Move-AI") {
-            let pts = JSON.parse(json.Payload);
-            for (let i=0; i<pts.length; i++) {
-                let p = null;
-                if (pts[i] == 0) {
-                    p = 'black';
-                } else if (pts[i] == 1) {
-                    p = 'white';
-                }
-                pts[i] = {player: p};
+            const pt = JSON.parse(json.Payload).Point;
+            if (pt == -1) {
+                json.Payload = json.Player;
+                json.Player = json.Player == 'white' ? 'black' : 'white';
+                json.Action = 'Pass';
+                // Fall through to case below
+            } else {
+                game.board.lastId = pt;
+                game.board.points[pt].player = json.Player;
+                game.board.cullCaptured(json.Player == 'white' ? 'black' : 'white');
+                game.board.cullCaptured(json.Player);
+                game.board.history.push(JSON.stringify(game.board.savePoints()));
+                game.board.repaint();
+                game.board.player = json.Player == 'white' ? 'black' : 'white';
+                game.passes = 0;
+                const [bscore, wscore] = game.board.getScores();
+                $('#black').innerText = bscore;
+                $('#white').innerText = wscore;
+                return;
             }
         }
         if (json.Action == "Chat") {
@@ -149,6 +167,9 @@ window.addEventListener('load', () => {
         game = {board: new Board(canvas), player: 'black', passes: 0};
         initBoard(game.board); 
         const pts = game.board.savePoints();
+        //console.log(pts);
+        //console.log(game.board.neighbors);
+        //console.log(getPointsNeighbors(game));
         game.conn = new WebSocket(`ws://${location.host}/ws`);
         game.conn.onopen = () => {
             game.conn.send(JSON.stringify({Action: 'New', BoardPlan: boardjson ? boardjson : "", Payload: JSON.stringify(pts)}));
@@ -158,21 +179,24 @@ window.addEventListener('load', () => {
 
     function getPointsNeighbors(game) {
         const pts = game.board.savePoints();
-        const ns = game.board.neighbors();
+        const ns = game.board.neighbors;
+        const npts = [];
         const nns = [];
         for (let i=0; i<pts.length; i++) {
             nns.push(ns[i]);
+            npts.push(-1);
         }
-        return JSON.stringify({Points: pts, Neighbors: nns});
+        return JSON.stringify({Points: npts, Neighbors: nns});
     }
 
     // We don't send a board plan, we
-    $('#new-black').addEventListener('click', () => {
+    $('#new-ai').addEventListener('click', () => {
         aigame = true;
         game = {board: new Board(canvas), player: 'black', passes: 0};
         initBoard(game.board); 
         game.conn = new WebSocket(`ws://${location.host}/ws`);
         game.conn.onopen = () => {
+            console.log('sending');
             game.conn.send(JSON.stringify({
                 Action: 'New-AI', 
                 BoardPlan: boardjson ? boardjson : "", 
@@ -210,7 +234,8 @@ window.addEventListener('load', () => {
         if (!res) return;
         game.board.repaint();
         if (aigame) {
-            game.conn.send(JSON.stringify({Action: 'Move-AI', Key: game.id, Payload: getPointsNeighbors(game)}));
+            const lastmove = getLastMove(game.board.history, game.board.savePoints());
+            game.conn.send(JSON.stringify({Action: 'Move-AI', Key: game.id, Payload: JSON.stringify({Point: lastmove})}));
         } else {
             game.conn.send(JSON.stringify({Action: 'Move', Key: game.id, Payload: JSON.stringify(game.board.savePoints())}));
             game.conn.send(JSON.stringify({Key: game.id, Action: 'Chat', Payload: `has moved`}));
@@ -233,7 +258,11 @@ window.addEventListener('load', () => {
     $('#pass').addEventListener('click', () => {
         if (!game || !game.conn) return;
         if (game.board.player != game.player) return;
-        game.conn.send(JSON.stringify({Key: game.id, Action: 'Pass'}));
+        if (aigame) {
+            game.conn.send(JSON.stringify({Action: 'Move-AI', Key: game.id, Payload: JSON.stringify({Point: -1})}));
+        } else {
+            game.conn.send(JSON.stringify({Key: game.id, Action: 'Pass'}));
+        }
     });
 
     // This conn only used for listing games

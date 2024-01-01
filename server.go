@@ -3,6 +3,7 @@ package main
 import (
     "bytes"
     "encoding/json"
+    //"fmt"
     "log"
     "net/http"
     "os"
@@ -27,6 +28,7 @@ type Game struct {
     Mutex sync.Mutex
     Conns []*websocket.Conn
     RecvChan chan bool
+    History []*ai.Board
 }
 
 type Request struct {
@@ -38,27 +40,17 @@ type Request struct {
 }
 
 type PointsNeighbors struct {
-    Points []string
+    Points []int
     Neighbors [][]int
 }
 
-func StringPointsToInts(s []string) []int {
-    ints := make([]int, len(s))
-    for i, ss := range s {
-        if ss == 'black' {
-            ints[i] = 0
-        } else if ss == 'white' {
-            ints[i] = 1
-        } else {
-            ints[i] = -1
-        }
-    }
-    return ints
+type AIMove struct {
+    Point int
 }
 
 func (pn *PointsNeighbors) ToBoard() *ai.Board {
     return &ai.Board{
-        Points: StringPointsToInts(pn.Points),
+        Points: pn.Points,
         Neighbors: pn.Neighbors,
         NPlayers: 2,
         Turn: 0,
@@ -239,31 +231,37 @@ func ListSocket(w http.ResponseWriter, r *http.Request) {
     }
 }
 
-func GameLoop(game *Game, nplay int, history *[]*Board, recvChan chan bool, sendChans []chan bool) {
-    board := (*history)[0]
-    for {
-        fmt.Println("A", board)
-        for i := 0; i < nplay; i++ {
-            sendChans[i] <- true
+func GameLoop(game *Game, recvChan chan bool, sendChan chan bool) {
+    getLastMove := func(prev *ai.Board, cur *ai.Board) int {
+        for i := 0; i < len(prev.Points); i++ {
+            if cur.Points[i] != -1 && prev.Points[i] != cur.Points[i] {
+                return i
+            }
         }
-        if board.GameOver(*history) {
-            fmt.Println("D", board)
-            fmt.Println(board.GetScores())
+        return -1
+    }
+    board := game.History[0]
+    for {
+        sendChan <- true
+        if board.GameOver(game.History) {
+            log.Println("game over")
+            log.Println(board.GetScores())
             break
         }
-        val := <- recvChan
-        board = (*history)[len(*history) - 1]
+        <- recvChan
+        prev := game.History[len(game.History) - 2]
+        board = game.History[len(game.History) - 1]
+        aimove := AIMove{Point: getLastMove(prev, board)}
         game.Mutex.Lock()
-        player := "black"
+        player := "white"
         if board.Turn % 2 == 1 {
-            player = "white"
+            player = "black"
         }
-        jsn2, _ := json.Marshal(board.Points)
-        reply := Request{Action: "Move-AI", Key: game.Key, Payload: jsn2, Player: player}
+        jsn2, _ := json.Marshal(aimove)
+        reply := Request{Action: "Move-AI", Key: game.Key, Payload: string(jsn2), Player: player}
         jsn, _ := json.Marshal(reply)
         game.Conns[0].WriteMessage(websocket.TextMessage, jsn)
         game.Mutex.Unlock()
-        fmt.Println("C", val, board)
     }
 }
 
@@ -349,7 +347,8 @@ func Socket(w http.ResponseWriter, r *http.Request) {
                 conn.WriteMessage(websocket.TextMessage, jsn)
             case "New-AI":
                 player = 0
-                game := &Game{Key: NextGameIdx(), BoardPlan: req.BoardPlan, Json: "", Conns: make([]*websocket.Conn, 1), Player: "black"}
+                // Two cons, one nil to prevent people from joining
+                game := &Game{Key: NextGameIdx(), BoardPlan: req.BoardPlan, Json: "", Conns: make([]*websocket.Conn, 2), Player: "black"}
                 game.Conns[0] = conn
                 games[game.Key] = game
                 reply := Request{Action: "New", Key: game.Key} 
@@ -361,18 +360,19 @@ func Socket(w http.ResponseWriter, r *http.Request) {
                     log.Println(err)
                     continue
                 }
-                board := pn.ToBoard()
                 // Start ai 
-                nplay := 2
-                history := []*ai.Board{board}
+                board := pn.ToBoard()
+                game.History = []*ai.Board{board}
                 recvChan := make(chan bool)
-                sendChans := make([]chan bool, 0)
+                sendChan := make(chan bool)
                 game.RecvChan = recvChan
-                for i := 0; i < nplay; i++ {
-                    sendChans = append(sendChans, make(chan bool))
-                    go ai.Loop(i, &history, sendChans[i], recvChan, 10, 1000, 10)
+                for i := 0; i < 2; i++ {
+                    if i == player {
+                        continue
+                    }
+                    go ai.Loop(i, &game.History, sendChan, recvChan, 5, 2000, 50)
                 }
-                go GameLoop(game, board, nplay, &history, recvChan, sendChans)
+                go GameLoop(game, recvChan, sendChan)
             case "Join": 
                 if player != -1 {
                     log.Println("Player already joined")
@@ -410,7 +410,8 @@ func Socket(w http.ResponseWriter, r *http.Request) {
             case "Move-AI":
                 game := games[req.Key]
                 game.Mutex.Lock()
-                err := json.Unmarshal([]byte(req.Payload), &pn)
+                var aimove AIMove
+                err := json.Unmarshal([]byte(req.Payload), &aimove)
                 if err != nil {
                     log.Println(err)
                     continue
@@ -420,10 +421,15 @@ func Socket(w http.ResponseWriter, r *http.Request) {
                 } else {
                     game.Player = "black"
                 }
-                jsn2, _ := json.Marshal(pn.ToBoard().Points)
-                reply := Request{Action: "Move-AI", Key: game.Key, Payload: jsn2, Player: game.Player}
-                jsn, _ := json.Marshal(reply)
-                game.Conns[0].WriteMessage(websocket.TextMessage, jsn)
+                // Make the move
+                nextBoard := game.History[len(game.History)-1].Clone()
+                nextBoard.Turn += 1
+                if aimove.Point != -1 {
+                    nextBoard.Points[aimove.Point] = player
+                    nextBoard.CullCaptured(1-player)
+                    nextBoard.CullCaptured(player)
+                }
+                game.History = append(game.History, nextBoard)
                 game.RecvChan <- true
                 game.Mutex.Unlock()
         }

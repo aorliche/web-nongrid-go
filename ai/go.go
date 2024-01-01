@@ -253,11 +253,11 @@ func (board *Board) Eval(before *Stats, me int) float64 {
 }
 
 func (board *Board) GameOver(history []*Board) bool {
-    if len(history) <= board.NPlayers {
+    if len(history) <= board.NPlayers+1 {
         return false
     }
     // N passes in a row
-    for i := len(history) - board.NPlayers; i < len(history); i++ {
+    for i := len(history) - board.NPlayers - 1; i < len(history); i++ {
         if !history[i].Equals(board) {
             return false
         }
