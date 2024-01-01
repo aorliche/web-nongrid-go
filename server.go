@@ -370,7 +370,7 @@ func Socket(w http.ResponseWriter, r *http.Request) {
                     if i == player {
                         continue
                     }
-                    go ai.Loop(i, &game.History, sendChan, recvChan, 5, 2000, 25)
+                    go ai.Loop(i, &game.History, sendChan, recvChan, 5, 2000, 200)
                 }
                 go GameLoop(game, recvChan, sendChan)
             case "Join": 

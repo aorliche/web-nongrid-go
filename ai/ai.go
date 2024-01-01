@@ -1,8 +1,8 @@
 package ai
 
 import (
-    //"fmt"
-    "sort"
+    "fmt"
+    //"sort"
     "time"
 )
 
@@ -33,13 +33,13 @@ func Search(history []*Board, me int, depth int, timeMillis int, nTop int) *Boar
     stats := board.GetStats()
     var res *Board
     for d := 1; d < depth; d++ {
-        _, fn, fin := SearchDeep(stats, history, me, d, startTime, timeMillis, nTop)
-        /*if st != nil {
+        st, fn, fin := SearchDeep(stats, history, me, d, startTime, timeMillis, nTop)
+        if st != nil {
             if d == 1 {
                 fmt.Println("board", board)
             }
             fmt.Println("me", me, "d", d, "see", board, "val", board.Eval(stats, me))
-        }*/
+        }
         if fn != nil && fin {
             res = fn()
         } else {
@@ -68,18 +68,18 @@ func SearchDeep(stats *Stats, history []*Board, me int, d int, startTime time.Ti
     vals := make([]float64, len(fns))
     boards := make([]*Board, len(fns))
     // Sort fns by heuristic eval
-    fnVals := make([]float64, len(fns))
+    /*fnVals := make([]float64, len(fns))
     for i,fn := range fns {
         fnVals[i] = fn().Eval(stats, me)
     }
     sort.Slice(fns, func(i, j int) bool {
         return fnVals[i] > fnVals[j]
-    })
+    })*/
     for i,fn := range fns {
         // Just evaluate the top N heuristic choices
-        if i >= nTop {
+        /*if i >= nTop {
             break
-        }
+        }*/
         next := fn()
         if !next.GameOver(history) {
             // Check opponents responses 
