@@ -248,7 +248,11 @@ func GameLoop(game *Game, recvChan chan bool, sendChan chan bool) {
             log.Println(board.GetScores())
             break
         }
-        <- recvChan
+        keepPlaying := <- recvChan
+        if !keepPlaying {
+            sendChan <- false
+            break
+        }
         prev := game.History[len(game.History) - 2]
         board = game.History[len(game.History) - 1]
         aimove := AIMove{Point: getLastMove(prev, board)}
@@ -293,11 +297,19 @@ func Socket(w http.ResponseWriter, r *http.Request) {
                     log.Println("Game not found")
                     continue    
                 }
+                // AI game
+                if game.Json == "" {
+                    game.RecvChan <- false
+                }
                 winner := "White"
                 if player == 1 {
                     winner = "Black"
                 }
                 for _, conn := range game.Conns {
+                    // AI Game
+                    if conn == nil {
+                        continue
+                    }
                     reply := Request{Action: "Concede", Key: game.Key, Payload: winner}
                     jsn, _ := json.Marshal(reply)
                     conn.WriteMessage(websocket.TextMessage, jsn)
