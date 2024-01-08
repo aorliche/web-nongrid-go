@@ -31,8 +31,9 @@ func Search(history []*Board, me int, depth int, timeMillis int, nTop int) *Boar
     startTime := time.Now()
     board := history[len(history)-1]
     stats := board.GetStats()
+    scores := board.GetScores()
     // End early if you win right away
-    if len(history) >= 2 && board.Equals(history[len(history)-2]) && stats.Scores[me] > stats.Scores[1-me] {
+    if len(history) >= 2 && board.Equals(history[len(history)-2]) && scores[me] > scores[1-me] {
         res := board.Clone()
         res.Turn += 1
         return res

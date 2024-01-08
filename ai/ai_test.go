@@ -142,3 +142,36 @@ func TestMoveOnce(t *testing.T) {
         fmt.Println(next, val)
     }
 }
+
+func TestGetScoreContestedRegions(t *testing.T) {
+    board := MakeTraditional(4, 2)
+    board.Points[0] = 0
+    board.Points[2] = 1
+    board.Points[4] = 1
+    board.Points[5] = 1
+    board.Points[6] = 0
+    s0, s1 := board.GetContestedScores()
+    if s0 != 1 && s1 != 16 {
+        t.Errorf("expect %v got %v", 1, s0)
+        t.Errorf("expect %v got %v", 16, s1)
+        scores := board.GetScores()
+        t.Errorf("scores %v", scores)
+    }
+}
+
+func TestGetScoreContestedRegions2(t *testing.T) {
+    board := MakeTraditional(4, 2)
+    board.Points[0] = 0
+    board.Points[2] = 1
+    board.Points[4] = 1
+    board.Points[5] = 1
+    board.Points[6] = 0
+    board.Points[10] = 0
+    s0, s1 := board.GetContestedScores()
+    if s0 != 3 && s1 != 5 {
+        t.Errorf("expect %v got %v", 3, s0)
+        t.Errorf("expect %v got %v", 5, s1)
+        scores := board.GetScores()
+        t.Errorf("scores %v", scores)
+    }
+}

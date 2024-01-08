@@ -166,6 +166,74 @@ func (board *Board) GetLiberties(me int) []int {
     return libs
 }
 
+// For player me
+// Parameters: 
+// 1. max total empty plus enemy count for a region to be considered potentially "owned" by me
+// 2. max number of enemy stones in the region above
+func (board *Board) GetContestedScores() (int,int) {
+    maxThresh := 15
+    minThresh := 3
+    ratThresh := 1.6
+    visited := make(map[int]bool)
+    expand := func(p int) (int,int) {
+        frontier := []int{p}
+        region := make(map[int]bool)
+        pCount := 0
+        bCount := 0
+        wCount := 0
+        for len(frontier) > 0 {
+            pCount += 1
+            p := frontier[0]
+            frontier = frontier[1:]
+            ns := board.Neighbors[p]
+            for _, n := range ns {
+                player := board.Points[n]
+                if Includes(frontier, n) || region[n] {
+                    continue;
+                }
+                if player == -1 {
+                    frontier = append(frontier, n)
+                } else if player == 0 {
+                    bCount += 1
+                    region[n] = true
+                } else {
+                    wCount += 1
+                    region[n] = true
+                }
+            }
+            region[p] = true
+            visited[p] = true
+        }
+        bScore := pCount+wCount
+        wScore := pCount+bCount
+        bRat := float64(bCount) / float64(wCount)
+        wRat := 1/bRat
+        if pCount > maxThresh || bCount <= wCount || wCount > minThresh || bRat < ratThresh {
+            bScore = 0
+        }
+        if pCount > maxThresh || bCount >= wCount || bCount > minThresh || wRat < ratThresh {
+            wScore = 0
+        }
+        return bScore, wScore
+    }
+    bScore, wScore := 0, 0
+    for p, player := range board.Points {
+        if visited[p] {
+            continue
+        }
+        if player == 0 {
+            bScore += 1
+        } else if player == 1 {
+            wScore += 1
+        } else {
+            b, w := expand(p)
+            bScore += b
+            wScore += w
+        }
+    } 
+    return bScore, wScore
+}
+
 func (board *Board) GetScores() []int {
     visited := make(map[int]bool)
     expandGetEmptyScore := func(p int) (bool, int, int) {
@@ -223,7 +291,9 @@ type Stats struct {
 
 func (board *Board) GetStats() *Stats {
     stats := &Stats{}
-    stats.Scores = board.GetScores()
+    bScore, wScore := board.GetContestedScores()
+    //stats.Scores = board.GetScores()
+    stats.Scores = []int{bScore, wScore}
     stats.Stones = make([]int, board.NPlayers)
     for i := 0; i < board.NPlayers; i++ {
         for _, p := range board.Points {
