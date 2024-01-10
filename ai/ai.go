@@ -2,6 +2,7 @@ package ai
 
 import (
     //"fmt"
+    "math"
     //"sort"
     "time"
 )
@@ -40,7 +41,8 @@ func Search(history []*Board, me int, depth int, timeMillis int, nTop int) *Boar
     }
     var res *Board
     for d := 1; d < depth; d++ {
-        _, fn, fin := SearchDeep(stats, history, me, d, startTime, timeMillis, nTop)
+        //_, fn, fin := SearchDeep(stats, history, me, d, startTime, timeMillis, nTop)
+        _, fn, fin, _ := SearchDeepAlphaBeta(stats, history, me, d, math.Inf(-1), math.Inf(1), true, startTime, timeMillis)
         /*if st != nil {
             if d == 1 {
                 fmt.Println("board", board)
@@ -56,11 +58,78 @@ func Search(history []*Board, me int, depth int, timeMillis int, nTop int) *Boar
     return res
 }
 
+func SearchDeepAlphaBeta(stats *Stats, history []*Board, me int, depth int, alpha float64, beta float64, maxNotMin bool, startTime time.Time, timeMillis int) (*Board, func()*Board, bool, float64) {
+    if depth == 0 {
+        return history[len(history)-1], nil, true, history[len(history)-1].Eval(stats, me)
+    }
+    if time.Since(startTime).Milliseconds() > int64(timeMillis) {
+        return nil, nil, false, 0
+    }
+    board := history[len(history)-1]
+    var me2 int
+    if maxNotMin {
+        me2 = me
+    } else {
+        me2 = 1-me
+    }
+    fns := board.GetCandidates(history, me2)
+    if len(fns) == 0 {
+        var val float64
+        if maxNotMin {
+            val = math.Inf(-1)
+        } else {
+            val = math.Inf(1)
+        }
+        return nil, nil, true, val
+    }
+    var v float64
+    var resBoard *Board
+    var resFn func()*Board
+    if maxNotMin {
+        v = math.Inf(-1)
+    } else {
+        v = math.Inf(1)
+    }
+    for _,fn := range fns {
+        next := fn()
+        if next.GameOver(history) {
+            return next, fn, true, next.Eval(stats, me)
+        }
+        nHist := AddToHistory(history, next)
+        n, _, fin, val := SearchDeepAlphaBeta(stats, nHist, me, depth-1, alpha, beta, !maxNotMin, startTime, timeMillis) 
+        if !fin {
+            return nil, nil, false, 0
+        }
+        if maxNotMin {
+            if val > v {
+                v = val
+                resBoard = n
+                resFn = fn
+                alpha = max(alpha, v)
+            }
+            if v >= beta {
+                return resBoard, resFn, true, v
+            }
+        } else {
+            if val < v {
+                v = val
+                resBoard = n
+                resFn = fn
+                beta = min(beta, v)
+            }
+            if v <= alpha {
+                return resBoard, resFn, true, v
+            }
+        }
+    }
+    return resBoard, resFn, true, v
+}
+
 // Iterative deepening worker
 // Standard minimax without alpha-beta pruning
 // Allow players to make consecutive moves
 // If the game rules allow it
-func SearchDeep(stats *Stats, history []*Board, me int, d int, startTime time.Time, timeMillis int, nTop int) (*Board, func()*Board, bool) {
+/*func SearchDeep(stats *Stats, history []*Board, me int, d int, alpha int, beta int, startTime time.Time, timeMillis int, nTop int) (*Board, func()*Board, bool) {
     if d == 0 {
         return history[len(history)-1], nil, true
     }
@@ -74,19 +143,7 @@ func SearchDeep(stats *Stats, history []*Board, me int, d int, startTime time.Ti
     }
     vals := make([]float64, len(fns))
     boards := make([]*Board, len(fns))
-    // Sort fns by heuristic eval
-    /*fnVals := make([]float64, len(fns))
     for i,fn := range fns {
-        fnVals[i] = fn().Eval(stats, me)
-    }
-    sort.Slice(fns, func(i, j int) bool {
-        return fnVals[i] > fnVals[j]
-    })*/
-    for i,fn := range fns {
-        // Just evaluate the top N heuristic choices
-        /*if i >= nTop {
-            break
-        }*/
         next := fn()
         if !next.GameOver(history) {
             // Check opponents responses 
@@ -95,7 +152,7 @@ func SearchDeep(stats *Stats, history []*Board, me int, d int, startTime time.Ti
             boards2 := make([]*Board, board.NPlayers)
             nHist := AddToHistory(history, next)
             for j := 0; j < board.NPlayers; j++ {
-                n, _, fin := SearchDeep(stats, nHist, j, d-1, startTime, timeMillis, nTop)
+                n, _, fin := SearchDeep(stats, nHist, j, d-1, alpha, beta, startTime, timeMillis, nTop)
                 if fin {
                     if n != nil {
                         vals2[j] = n.Eval(stats, me)
@@ -127,8 +184,5 @@ func SearchDeep(stats *Stats, history []*Board, me int, d int, startTime time.Ti
             best = i
         }
     }
-    /*if best == -1 {
-        return nil, nil, false
-    }*/
     return boards[best], fns[best], true
-}
+}*/
