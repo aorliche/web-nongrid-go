@@ -32,9 +32,8 @@ func Search(history []*Board, me int, depth int, timeMillis int, nTop int) *Boar
     startTime := time.Now()
     board := history[len(history)-1]
     stats := board.GetStats()
-    scores := board.GetScores()
     // End early if you win right away
-    if len(history) >= 2 && board.Equals(history[len(history)-2]) && scores[me] > scores[1-me] {
+    if len(history) >= 2 && board.Equals(history[len(history)-2]) && stats.Scores[me] > stats.Scores[1-me] {
         res := board.Clone()
         res.Turn += 1
         return res
@@ -56,6 +55,20 @@ func Search(history []*Board, me int, depth int, timeMillis int, nTop int) *Boar
         }
     }
     return res
+}
+
+func max(a float64, b float64) float64 {
+    if a > b {
+        return a
+    }
+    return b
+}
+
+func min(a float64, b float64) float64 {
+    if a < b {
+        return a
+    }
+    return b
 }
 
 func SearchDeepAlphaBeta(stats *Stats, history []*Board, me int, depth int, alpha float64, beta float64, maxNotMin bool, startTime time.Time, timeMillis int) (*Board, func()*Board, bool, float64) {
