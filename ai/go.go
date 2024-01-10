@@ -172,7 +172,7 @@ func (board *Board) GetLiberties(me int) []int {
 // 2. max number of enemy stones in the region above
 func (board *Board) GetContestedScores() (int,int) {
     maxThresh := 15
-    minThresh := 3
+    minThresh := 1
     ratThresh := 1.6
     visited := make(map[int]bool)
     expand := func(p int) (int,int) {
@@ -337,9 +337,9 @@ func (board *Board) Eval(before *Stats, me int) float64 {
         return float64(s)
     }
     after := board.GetStats()
-    a := 0.5*float64(after.Scores[me] - before.Scores[me] + before.Scores[1-me] - after.Scores[1-me])
+    a := 0*float64(after.Scores[me] - before.Scores[me] + before.Scores[1-me] - after.Scores[1-me])
     b := before.LibDangers[me] - after.LibDangers[me] + after.LibDangers[1-me] - before.LibDangers[1-me]
-    c := 0.5*float64(len(before.Libs[me]) - len(after.Libs[me]) + len(after.Libs[1-me]) - len(before.Libs[1-me]))
+    c := 1*float64(len(before.Libs[me]) - len(after.Libs[me]) + len(after.Libs[1-me]) - len(before.Libs[1-me]))
     d := float64(after.Stones[me] - before.Stones[me] + before.Stones[1-me] - after.Stones[1-me])
     e := 0.3*(sum(after.Libs[me]) - sum(before.Libs[me]) + sum(before.Libs[1-me]) - sum(after.Libs[1-me]))
     f := 0.5*float64(after.CScores[me] - before.CScores[me] + before.CScores[1-me] - after.CScores[1-me])
