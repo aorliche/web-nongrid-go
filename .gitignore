@@ -1,8 +1,8 @@
-*
-!/**/
-#!boards/*
-boards
-!*.*
+#*
+#!/**/
+!boards/*
+#boards
+#!*.*
 *.bak
 !Makefile
 !.gitignore
